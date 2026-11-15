@@ -9,7 +9,7 @@ import { INTERVIEW_TEMPLATES } from './data/interviewTemplates';
 import { SUBJECT_FIELDS } from './data/subjectFields';
 import { GeminiService } from './services/geminiService';
 import { Navbar } from './components/Navbar';
-import { InterviewSetupWizard } from './components/Setup/InterviewSetupWizard';
+import { SimpleHome } from './components/Home/SimpleHome';
 import { SimulationRoom } from './components/Simulation/SimulationRoom';
 import { LawLibraryModal } from './components/Laws/LawLibraryModal';
 import { ResourceUploaderModal } from './components/Setup/ResourceUploaderModal';
@@ -108,12 +108,13 @@ export const App: React.FC = () => {
       {/* Ana Görünüm Alanı */}
       <main className="flex-1">
         {currentView === 'setup' ? (
-          <InterviewSetupWizard
+          <SimpleHome
             templates={INTERVIEW_TEMPLATES}
             subjects={SUBJECT_FIELDS}
             laws={laws}
             onStartInterview={handleStartInterview}
             onOpenResourceUploader={() => setIsResourceUploaderOpen(true)}
+            onOpenLawLibrary={() => setIsLawLibraryOpen(true)}
           />
         ) : (
           interviewConfig && (
