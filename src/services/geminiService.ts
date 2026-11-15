@@ -1,8 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { InterviewConfig, LawResource, ExternalResource, ChatMessage, InterviewStage } from '../types';
 
-const API_KEY_STORAGE_KEY = 'mufettisx_gemini_api_key';
+// Çevre değişkeninden yüklenen entegre API anahtarı (.env.local)
+const EMBEDDED_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MOCK_MODE_STORAGE_KEY = 'mufettisx_use_mock_mode';
+
+// Desteklenen ücretsiz Flash modelleri (Öncelik sırasıyla)
+const SUPPORTED_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
 export class GeminiService {
   private static instance: GeminiService;
@@ -16,22 +20,14 @@ export class GeminiService {
     return GeminiService.instance;
   }
 
-  public getApiKey(): string | null {
-    return localStorage.getItem(API_KEY_STORAGE_KEY) || import.meta.env.VITE_GEMINI_API_KEY || null;
-  }
-
-  public setApiKey(key: string): void {
-    if (key.trim()) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, key.trim());
-    } else {
-      localStorage.removeItem(API_KEY_STORAGE_KEY);
-    }
+  public getApiKey(): string {
+    return EMBEDDED_API_KEY;
   }
 
   public isMockMode(): boolean {
     const stored = localStorage.getItem(MOCK_MODE_STORAGE_KEY);
-    // Varsayılan olarak mock modu açık
-    return stored === null ? true : stored === 'true';
+    // Artık varsayılan olarak Gemini AI aktif (false)
+    return stored === 'true';
   }
 
   public setMockMode(useMock: boolean): void {
@@ -42,36 +38,7 @@ export class GeminiService {
     return Boolean(this.getApiKey());
   }
 
-  // API Anahtarını canlı olarak test eder
-  public async testConnection(key?: string): Promise<{ success: boolean; message: string }> {
-    const testKey = key?.trim() || this.getApiKey();
-    if (!testKey) {
-      return { success: false, message: 'Lütfen geçerli bir Gemini API anahtarı giriniz.' };
-    }
-
-    try {
-      const genAI = new GoogleGenerativeAI(testKey);
-      // Ücretsiz ve en hızlı model
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const result = await model.generateContent('Merhaba, tek kelimeyle "Aktif" de.');
-      const response = await result.response;
-      const text = response.text();
-
-      if (text) {
-        return { success: true, message: 'Google Gemini API bağlantısı başarılı! Ücretsiz Flash modeli hazır.' };
-      }
-      return { success: false, message: 'API yanıt döndüremedi.' };
-    } catch (err: any) {
-      console.error('Gemini test error:', err);
-      let errMsg = err.message || 'Bağlantı sağlanamadı.';
-      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('400')) {
-        errMsg = 'Geçersiz API Anahtarı! Lütfen Google AI Studio üzerinden aldığınız anahtarı kontrol ediniz.';
-      }
-      return { success: false, message: `Hata: ${errMsg}` };
-    }
-  }
-
-  // Gemini API'ye gönderilecek sistem promptunu ve kanun bağlamını inşa eder
+  // Sistem promptunu ve kanun bağlamını inşa eder
   public buildSystemPrompt(
     config: InterviewConfig,
     selectedLaws: LawResource[],
@@ -85,7 +52,7 @@ export class GeminiService {
     }[config.committeeTone];
 
     const lawsContext = selectedLaws.map(law => {
-      const articles = law.articles.map(a => `  - ${a.articleNumber} (${a.title}): ${a.text} [Önem: ${a.relevance}]`).join('\n');
+      const articles = law.articles.map(a => `  - ${a.articleNumber} (${a.title}): ${a.text} [Mülakat Önemi: ${a.relevance}]`).join('\n');
       return `[KANUN: ${law.title} (${law.code})]\n${articles}`;
     }).join('\n\n');
 
@@ -110,14 +77,14 @@ EK KAYNAKLAR VE DENETİM REHBERLERİ:
 ${resourcesContext}
 
 KOMİSYON PROTOKOLÜ VE KURALLAR:
-1. Tek bir kişi gibi değil, "Komisyon Başkanı (Başmüfettiş)" veya uzman "Komisyon Üyeleri" (Maliye, Hukuk, Bankacılık) kimliğiyle konuş.
+1. Tek bir kişi gibi değil, "Komisyon Başkanı (Başmüfettiş)" veya uzman "Komisyon Üyeleri" (Maliye, Hukuk, Muhasebe vb.) kimliğiyle konuş.
 2. Adayın cevabını kısaca analiz et (hukuki terminolojiye uydu mu, mantık tutarlı mı?), ardından bir sonraki derinleştirici soruyu sor.
 3. Soru sorarken mutlaka yukarıdaki KANUN METİNLERİNDEN (Örn: VUK 359, 5018 Harcama yetkilisi, Anayasa 73 vb.) ve gerçek denetim senaryolarından (sahte fatura, zimmet, örtülü sermaye, yetki aşımı) beslen.
 4. Yanıtlarını Türkçe, son derece resmi, devlet ciddiyetine ve Türk bürokrasi teftiş adabına uygun şekilde ver.
-5. Aşırı uzun destansı yanıtlar verme; mülakat sohbetinin dinamik kalması için 2-3 paragrafı geçme.`;
+5. Aşırı uzun yanıtlar verme; mülakat sohbetinin dinamik kalması için 2-3 paragrafı geçme.`;
   }
 
-  // Gemini API çağrısı
+  // Gemini API çağrısı (Model fallback ile yüksek kararlılık)
   public async generateCommissionResponse(
     candidateText: string,
     history: ChatMessage[],
@@ -128,20 +95,10 @@ KOMİSYON PROTOKOLÜ VE KURALLAR:
   ): Promise<string> {
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      throw new Error('Gemini API anahtarı tanımlı değil.');
+      throw new Error('Gemini API anahtarı bulunamadı.');
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Ücretsiz katmanda çalışan Google Gemini 1.5 Flash modeli
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 800,
-      }
-    });
-
     const systemPrompt = this.buildSystemPrompt(config, laws, externalResources, currentStage);
     
     // Geçmiş mesajları formatla
@@ -160,8 +117,31 @@ ADAYIN VERDİĞİ SON CEVAP:
 LÜTFEN ŞİMDİ:
 Adayın cevabını komisyon heyeti vakarında kısaca değerlendir ve ilgili kanun veya teftiş senaryosu çerçevesinde sıradaki sorunu yönelt.`;
 
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
-    return response.text();
+    let lastError: any = null;
+
+    // Desteklenen modelleri sırasıyla dene
+    for (const modelName of SUPPORTED_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 800,
+          }
+        });
+
+        const result = await model.generateContent(fullPrompt);
+        const response = await result.response;
+        const text = response.text();
+        if (text) {
+          return text;
+        }
+      } catch (err: any) {
+        console.warn(`Model ${modelName} denenirken hata:`, err?.message || err);
+        lastError = err;
+      }
+    }
+
+    throw lastError || new Error('Yapay zeka yanıt üretemedi.');
   }
 }

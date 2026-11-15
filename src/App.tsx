@@ -21,10 +21,10 @@ const RES_STORAGE_KEY = 'mufettisx_saved_resources';
 export const App: React.FC = () => {
   const geminiService = GeminiService.getInstance();
 
-  // State
+  // State (Gemini AI varsayılan olarak aktiftir)
   const [currentView, setCurrentView] = useState<'setup' | 'simulation'>('setup');
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
-  const [isMockMode, setIsMockMode] = useState<boolean>(geminiService.isMockMode());
+  const [isMockMode, setIsMockMode] = useState<boolean>(false);
 
   // Kanunlar ve Kaynaklar
   const [laws, setLaws] = useState<LawResource[]>(() => {
