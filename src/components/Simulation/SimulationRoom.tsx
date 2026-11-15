@@ -21,9 +21,11 @@ import {
   BookOpen, 
   X, 
   Check, 
-  FileEdit,
-  Loader2,
-  Scale
+  FileEdit, 
+  Loader2, 
+  Scale,
+  Award,
+  Receipt
 } from 'lucide-react';
 
 interface SimulationRoomProps {
@@ -226,6 +228,47 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
         onOpenNotepad={() => setShowNotepad(true)}
         onEndInterviewEarly={handleEndEarly}
       />
+
+      {/* 3 Kişilik Resmi Komisyon Heyeti Masası */}
+      <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2.5 shadow-md">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 overflow-x-auto pb-0.5">
+          {/* Komisyon Başkanı */}
+          <div className="flex items-center gap-2.5 p-2 px-3 rounded-2xl bg-slate-950/90 border border-amber-500/30 shrink-0 shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/40 flex items-center justify-center">
+              <Award className="w-4 h-4 text-amber-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-100">Komisyon Başkanı</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              </div>
+              <p className="text-[10px] text-amber-400 font-medium">1. Sınıf Başmüfettiş (Heyet Bşk.)</p>
+            </div>
+          </div>
+
+          {/* 1. Üye: Maliye & Denetim */}
+          <div className="flex items-center gap-2.5 p-2 px-3 rounded-2xl bg-slate-950/80 border border-brand-500/20 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-center justify-center">
+              <Receipt className="w-4 h-4 text-brand-400" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-200">1. Üye (Maliye & Denetim)</span>
+              <p className="text-[10px] text-brand-400 font-medium">Kıdemli Vergi Başmüfettişi</p>
+            </div>
+          </div>
+
+          {/* 2. Üye: Kamu Hukuku & Yargı */}
+          <div className="flex items-center gap-2.5 p-2 px-3 rounded-2xl bg-slate-950/80 border border-indigo-500/20 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
+              <Scale className="w-4 h-4 text-indigo-400" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold text-slate-200">2. Üye (Hukuk & Mevzuat)</span>
+              <p className="text-[10px] text-indigo-400 font-medium">İdari Yargı & Hukuk Müşaviri</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Ana Sohbet Akışı */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 max-w-4xl mx-auto w-full space-y-4">

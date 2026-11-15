@@ -5,7 +5,7 @@ import { InterviewConfig, LawResource, ExternalResource, ChatMessage, InterviewS
 const EMBEDDED_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MOCK_MODE_STORAGE_KEY = 'mufettisx_use_mock_mode';
 
-// Desteklenen ücretsiz Flash modelleri (Öncelik sırasıyla)
+// Desteklenen modeller sırasıyla
 const SUPPORTED_MODELS = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
 export class GeminiService {
@@ -26,7 +26,6 @@ export class GeminiService {
 
   public isMockMode(): boolean {
     const stored = localStorage.getItem(MOCK_MODE_STORAGE_KEY);
-    // Artık varsayılan olarak Gemini AI aktif (false)
     return stored === 'true';
   }
 
@@ -38,53 +37,58 @@ export class GeminiService {
     return Boolean(this.getApiKey());
   }
 
-  // Sistem promptunu ve kanun bağlamını inşa eder
+  // Sistem promptu: Gerçekçi Devlet Teftiş Kurulu & Mülakat Heyeti Atmosferi
   public buildSystemPrompt(
     config: InterviewConfig,
     selectedLaws: LawResource[],
     externalResources: ExternalResource[],
     currentStage: InterviewStage
   ): string {
-    const toneText = {
-      supportive: 'Adayı cesaretlendirici, rehberlik eden ama ciddiyeti koruyan nazik bir üslup',
-      standard: 'Klasik devlet teftiş kurulu mülakatı üslubu; mesafeli, resmi, net ve ölçülü',
-      strict: 'Stres mülakatı tarzı; adayın cevaplarını sıkıştıran, çelişkileri anında yüzüne vuran zorlayıcı bir üslup'
+    const toneDescription = {
+      supportive: 'Adayın heyecanını yatıştıran ancak devlet vakarından ödün vermeyen, öğretici ve yönlendirici bir heyet.',
+      standard: 'Klasik Türk Devlet Teftiş Kurulu mülakatı: Ağırbaşlı, mesafeli, resmi, kanun lafzına ve ruhuna aşırı dikkat eden, tavizsiz heyet.',
+      strict: 'Stres mülakatı: Adayın en ufak çelişkisini yakalayan, baskı altında soğukkanlılığını ölçen, sert ve zorlayıcı heyet.'
     }[config.committeeTone];
 
     const lawsContext = selectedLaws.map(law => {
-      const articles = law.articles.map(a => `  - ${a.articleNumber} (${a.title}): ${a.text} [Mülakat Önemi: ${a.relevance}]`).join('\n');
-      return `[KANUN: ${law.title} (${law.code})]\n${articles}`;
+      const articles = law.articles.map(a => `  • ${a.articleNumber} (${a.title}): ${a.text}\n    [Gerekçe/Önem: ${a.relevance}]`).join('\n');
+      return `[KANUN METNİ: ${law.title} - ${law.code}]\n${articles}`;
     }).join('\n\n');
 
     const resourcesContext = externalResources.map(r => {
-      return `[KAYNAK: ${r.title} (${r.source})]\n${r.content}`;
+      return `[EK KAYNAK/TEBLİĞ: ${r.title} (${r.source})]\n${r.content}`;
     }).join('\n\n');
 
-    return `Sen "MüfettişX" adında, Türkiye'nin en seçkin kariyer meslek sınavları ve teftiş kurulları (VDK, Sayıştay, SGK, İdari Yargı Hâkimliği, Banka Müfettişliği, BDDK vb.) için sözlü mülakat simülasyonu icra eden Yüksek Mülakat Komisyon Heyetisin.
+    return `SENİN ROLÜN:
+Sen, Türkiye Cumhuriyeti'nin en seçkin kariyer meslek sınavlarını (Vergi Denetim Kurulu, Sayıştay, SGK Teftiş, İdari Yargı Hâkimliği vb.) icra eden RESMİ YÜKSEK MÜLAKAT KOMİSYONU HEYETİSİN.
 
-MÜLAKAT BİLGİLERİ:
-- Hedef Kurum: ${config.targetInstitution || 'Teftiş Kurulu Başkanlığı'}
-- Kadro / Unvan: ${config.positionTitle || 'Müfettiş Yardımcılığı'}
+MÜLAKAT KÜNYESİ:
+- Kurum: ${config.targetInstitution || 'Hazine ve Maliye Bakanlığı Teftiş Kurulu'}
+- Kadro: ${config.positionTitle || 'Müfettiş Yardımcılığı'}
 - Aday Adı: ${config.candidateName || 'Aday'}
-- İlan Detayları: ${config.jobPostingDetails || 'Standart A Grubu Kariyer İlanı'}
-- Komisyon Tavrı: ${toneText}
-- Mülakat Aşaması: ${currentStage}
+- İlan/Kadro Bilgileri: ${config.jobPostingDetails || 'Standart A Grubu Kariyer Meslek Sınavı'}
+- Komisyon Tarzı: ${toneDescription}
+- Oturum Aşaması: ${currentStage}
 
-MÜLAKATTA KULLANILACAK KANUN VE MEVZUAT METİNLERİ:
+MASADAKİ KANUN VE MEVZUAT METİNLERİ:
 ${lawsContext}
 
-EK KAYNAKLAR VE DENETİM REHBERLERİ:
-${resourcesContext}
+${resourcesContext ? `EK REHBER VE TEBLİĞLER:\n${resourcesContext}\n` : ''}
 
-KOMİSYON PROTOKOLÜ VE KURALLAR:
-1. Tek bir kişi gibi değil, "Komisyon Başkanı (Başmüfettiş)" veya uzman "Komisyon Üyeleri" (Maliye, Hukuk, Muhasebe vb.) kimliğiyle konuş.
-2. Adayın cevabını kısaca analiz et (hukuki terminolojiye uydu mu, mantık tutarlı mı?), ardından bir sonraki derinleştirici soruyu sor.
-3. Soru sorarken mutlaka yukarıdaki KANUN METİNLERİNDEN (Örn: VUK 359, 5018 Harcama yetkilisi, Anayasa 73 vb.) ve gerçek denetim senaryolarından (sahte fatura, zimmet, örtülü sermaye, yetki aşımı) beslen.
-4. Yanıtlarını Türkçe, son derece resmi, devlet ciddiyetine ve Türk bürokrasi teftiş adabına uygun şekilde ver.
-5. Aşırı uzun yanıtlar verme; mülakat sohbetinin dinamik kalması için 2-3 paragrafı geçme.`;
+KOMİSYON ÜYELERİNİN KİMLİKLERİ:
+1. **Komisyon Başkanı (Kıdemli 1. Sınıf Başmüfettiş):** Oturumu yönetir, adayın temsil kabiliyetini, liyakatini, vakarını ve genel idare anlayışını sınar.
+2. **Komisyon Üyesi (Maliye & Denetim Başmüfettişi):** Teknik mevzuat, VUK, 5018, muhasebe hileleri ve tarhiyat usullerini sorar.
+3. **Komisyon Üyesi (Hukuk Müşaviri / İdari Yargı Üyesi):** Anayasa, İYUK süreleri, kamu zararı ve disiplin soruşturması detaylarını irdeler.
+
+ÖNEMLİ MÜLAKAT KURALLARI:
+1. **MÜLAKAT CİDDİYETİ:** Aday lakayt, tek kelimelik (örn: "sor", "bilmem", "geç") veya laubali bir yanıt verirse, Komisyon Başkanı sert ve resmi bir dille adayı mülakat adabına davet eder ve ardından soruyu yöneltir.
+2. **DİYALOG AKIŞI:** Heyet üyeleri birbirine söz verir (Örn: "Teşekkürler Başkanım. Adayımıza VUK 359 ile ilgili şu soruyu sormak isterim...").
+3. **SOMUT KANUN SORULARI:** Sorularını mutlaka yukarıda verilen kanun maddelerine (Madde numarası ve adını belirterek) ve gerçek denetim senaryolarına dayandır.
+4. **CEVAP BÜTÜNLÜĞÜ:** Cümlelerini ASLA yarıda kesme! Yanıtını her zaman adaya yöneltilen net bir soruyla ve "Söz sizde, buyrun izah ediniz." gibi mülakat kapanışıyla bitir.
+5. **AŞAMA DİNAMİĞİ:** Sırasıyla tanışma -> kanun teorisi -> teknik takip sorusu -> somut denetim vakası (Case Study) -> etik/kriz sorusu silsilesini takip et.`;
   }
 
-  // Gemini API çağrısı (Model fallback ile yüksek kararlılık)
+  // Gemini API Çağrısı
   public async generateCommissionResponse(
     candidateText: string,
     history: ChatMessage[],
@@ -101,40 +105,41 @@ KOMİSYON PROTOKOLÜ VE KURALLAR:
     const genAI = new GoogleGenerativeAI(apiKey);
     const systemPrompt = this.buildSystemPrompt(config, laws, externalResources, currentStage);
     
-    // Geçmiş mesajları formatla
-    const conversationHistory = history.map(msg => 
-      `${msg.role === 'commission' ? (msg.speakerTitle || 'KOMİSYON') : 'ADAY'}: ${msg.content}`
+    // Geçmiş mesajları resmi formata dök
+    const conversationHistory = history.slice(-6).map(msg => 
+      `${msg.role === 'commission' ? (msg.speakerTitle || 'KOMİSYON HEYETİ') : 'ADAY'}: ${msg.content}`
     ).join('\n\n');
 
     const fullPrompt = `${systemPrompt}
 
-GEÇMİŞ MÜLAKAT DİYALOĞU:
+GEÇMİŞ MÜLAKAT TUTANAĞI:
 ${conversationHistory}
 
-ADAYIN VERDİĞİ SON CEVAP:
+ADAYIN KOMİSYONA SON CEVABI:
 "${candidateText}"
 
-LÜTFEN ŞİMDİ:
-Adayın cevabını komisyon heyeti vakarında kısaca değerlendir ve ilgili kanun veya teftiş senaryosu çerçevesinde sıradaki sorunu yönelt.`;
+KOMİSYON TALİMATI:
+Adayın cevabını resmi devlet teftiş kurulu ciddiyetiyle değerlendir. İlgili komisyon üyesi ağzından konuşarak, kanun maddeleri ışığında bir sonraki derinlemesine mülakat sorunu sor.
+(ÖNEMLİ: Cümleni ASLA yarım bırakma. Tam bir soru cümlesiyle bitir.)`;
 
     let lastError: any = null;
 
-    // Desteklenen modelleri sırasıyla dene
+    // Desteklenen modelleri sırasıyla dene (Yüksek token limitiyle)
     for (const modelName of SUPPORTED_MODELS) {
       try {
         const model = genAI.getGenerativeModel({ 
           model: modelName,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 800,
+            maxOutputTokens: 2500, // Yarım kalmayı önleyen geniş token tavanı
           }
         });
 
         const result = await model.generateContent(fullPrompt);
         const response = await result.response;
         const text = response.text();
-        if (text) {
-          return text;
+        if (text && text.trim().length > 0) {
+          return text.trim();
         }
       } catch (err: any) {
         console.warn(`Model ${modelName} denenirken hata:`, err?.message || err);

@@ -34,9 +34,9 @@ export class InterviewEngine {
 
   // İlk karşılama mesajını üretir
   public getInitialGreeting(): ChatMessage {
-    const institution = this.config.targetInstitution || 'İlgili Kurum';
-    const position = this.config.positionTitle || 'Müfettiş Yardımcılığı';
-    const candidateName = this.config.candidateName ? `Sayın ${this.config.candidateName}` : 'Değerli Adayımız';
+    const institution = this.config.targetInstitution || 'Hazine ve Maliye Bakanlığı';
+    const position = this.config.positionTitle || 'Vergi Müfettiş Yardımcılığı';
+    const candidateName = this.config.candidateName ? `Sayın ${this.config.candidateName}` : 'Sayın Aday';
 
     const selectedLawTitles = this.laws
       .filter(l => this.config.selectedLaws.includes(l.id))
@@ -47,14 +47,22 @@ export class InterviewEngine {
     return {
       id: `msg-${Date.now()}-0`,
       role: 'commission',
-      speakerTitle: COMMISSION_ROLES[0].title,
+      speakerTitle: 'Komisyon Başkanı (1. Sınıf Başmüfettiş)',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       stage: 'welcome',
-      content: `Hoş geldiniz ${candidateName}. ${institution} bünyesindeki "${position}" sözlü mülakat oturumuna başlıyoruz.
+      content: `**T.C. ${institution.toUpperCase()} SÖZLÜ SINAV VE MÜLAKAT KOMİSYONU**
+*Tutanak Esas No: 2026/M-104 • Salon: 1 • Oturum: Kapalı/Resmi*
 
-Komisyonumuz önünüzdeki başvuru dosyasını ve ilan şartlarını inceledi. Mülakatımızda alan bilginizi, seçtiğiniz mevzuat altyapısını (${selectedLawTitles || 'Genel Hukuk ve Maliye Mevzuatı'}) ve müfettişlik mesleğine dair kriz yönetimi kabiliyetinizi ölçeceğiz.
+${candidateName}, komisyonumuz huzuruna hoş geldiniz. Oturunuz ve heyetimizin sükunetini bekleyiniz.
 
-Öncelikle rahat olunuz. Heyetimize kısaca kendinizi, eğitiminizi ve neden özellikle bu kariyer mesleği tercih ettiğinizi özetler misiniz?`
+Heyetimiz önünüzdeki başvuru dosyasını, tahsil durumunuzu ve ilan şartlarını incelemiştir. Masamızdaki mevzuat gündeminde **${selectedLawTitles || 'Temel Türk Mevzuatı'}** bulunmaktadır.
+
+Bu mülakatta; ezberlenmiş basmakalıp sözleri değil, devletin denetim ve soruşturma erkini temsil edebilecek **kanuni muhakeme derinliğini, ifade kabiliyetinizi ve mesleki vakarınızı** değerlendireceğiz.
+
+**Komisyonumuzun İlk Sorusu:**
+Kendinizi, eğitiminizi ve hususiyle devlete hizmet noktasında neden bu kariyer mesleği tercih ettiğinizi; gereksiz ayrıntılardan kaçınarak, kanun ve devlet terbiyesi çerçevesinde özetleyiniz.
+
+Söz sizdedir, buyrun.`
     };
   }
 
