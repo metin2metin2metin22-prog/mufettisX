@@ -171,27 +171,6 @@ export const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
             </div>
           )}
 
-          {/* Değerlendirme & İpucu Kutusu (Varsa) */}
-          {message.feedback && (
-            <div className="mt-2.5 p-3 rounded-2xl bg-slate-950/70 border border-slate-800/80 text-xs flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-slate-400">
-                <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Mevzuat & İfade Uyumu: %{message.feedback.accuracyScore}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  Mesleki Vakar: %{message.feedback.toneScore}
-                </span>
-              </div>
-              {message.feedback.tip && (
-                <div className="flex items-start gap-1.5 text-slate-400 text-[11px] pt-1.5 border-t border-slate-800">
-                  <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-                  <span>Komisyon Notu: {message.feedback.tip}</span>
-                </div>
-              )}
-            </div>
-          )}
-
         </div>
 
       </div>

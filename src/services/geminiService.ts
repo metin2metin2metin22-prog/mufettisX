@@ -1,5 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { InterviewConfig, LawResource, ExternalResource, ChatMessage, InterviewStage } from '../types';
+import { 
+  InterviewConfig, 
+  LawResource, 
+  ExternalResource, 
+  ChatMessage, 
+  InterviewStage,
+  InterviewEvaluationReport 
+} from '../types';
 
 // Çevre değişkeninden yüklenen entegre API anahtarı (.env.local)
 const EMBEDDED_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -37,7 +44,7 @@ export class GeminiService {
     return Boolean(this.getApiKey());
   }
 
-  // Sistem promptu: Gerçekçi Devlet Teftiş Kurulu & Mülakat Heyeti Atmosferi
+  // Sistem promptu: Sembolik ve İsimsiz Heyet Üyesi
   public buildSystemPrompt(
     config: InterviewConfig,
     selectedLaws: LawResource[],
@@ -82,7 +89,7 @@ KESİN KURALLAR:
 4. **MÜLAKAT CİDDİYETİ:** Aday lakayt veya tek kelimelik (örn: "sor", "bilmem") cevap verirse, bunu ciddiyetle eleştirip sorunu yönelt.`;
   }
 
-  // Gemini API Çağrısı
+  // Gemini API Soru Çağrısı
   public async generateCommissionResponse(
     candidateText: string,
     history: ChatMessage[],
@@ -99,9 +106,8 @@ KESİN KURALLAR:
     const genAI = new GoogleGenerativeAI(apiKey);
     const systemPrompt = this.buildSystemPrompt(config, laws, externalResources, currentStage);
     
-    // Geçmiş mesajları resmi formata dök
     const conversationHistory = history.slice(-6).map(msg => 
-      `${msg.role === 'commission' ? (msg.speakerTitle || 'KOMİSYON HEYETİ') : 'ADAY'}: ${msg.content}`
+      `${msg.role === 'commission' ? 'HEYET' : 'ADAY'}: ${msg.content}`
     ).join('\n\n');
 
     const fullPrompt = `${systemPrompt}
@@ -118,14 +124,13 @@ Adayın cevabını analiz et. Kendine ASLA unvan veya isim takmadan (Örn: '**Ko
 
     let lastError: any = null;
 
-    // Desteklenen modelleri sırasıyla dene (Yüksek token limitiyle)
     for (const modelName of SUPPORTED_MODELS) {
       try {
         const model = genAI.getGenerativeModel({ 
           model: modelName,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 2500, // Yarım kalmayı önleyen geniş token tavanı
+            maxOutputTokens: 2500,
           }
         });
 
@@ -142,5 +147,135 @@ Adayın cevabını analiz et. Kendine ASLA unvan veya isim takmadan (Örn: '**Ko
     }
 
     throw lastError || new Error('Yapay zeka yanıt üretemedi.');
+  }
+
+  // ========================================================
+  // YAPAY ZEKA DESTEKLİ KAPSAMLI MÜLAKAT DEĞERLENDİRME RAPORU
+  // ========================================================
+  public async generateComprehensiveAIReport(
+    config: InterviewConfig,
+    history: ChatMessage[],
+    laws: LawResource[]
+  ): Promise<InterviewEvaluationReport> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new Error('API anahtarı bulunamadı.');
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+
+    // Mülakat diyaloglarını derle
+    const conversation = history.map((msg, i) => 
+      `[${msg.role === 'commission' ? 'HEYET SORUSU' : 'ADAY YANITI'}]:\n${msg.content}`
+    ).join('\n\n');
+
+    const lawsList = laws
+      .filter(l => config.selectedLaws.includes(l.id))
+      .map(l => `${l.code} (${l.title})`)
+      .join(', ');
+
+    const prompt = `Sen Türkiye'nin en seçkin kariyer sınavları (VDK, Sayıştay, SGK, İdari Yargı vb.) için sözlü mülakat değerlendirmesi yapan Yüksek Mülakat Değerlendirme Kurulusun.
+
+GÖREVİN:
+Aşağıdaki gerçek mülakat diyaloğunu en ince ayrıntısına kadar incele. Aday için son derece profesyonel, gerçekçi, eksiklerini yüzüne vuran ve sınava hazırlanmasında hayat kurtaracak kalitede bir "MÜLAKAT DEĞERLENDİRME VE KARNE RAPORU" hazırla.
+
+MÜLAKAT BİLGİLERİ:
+- Kurum: ${config.targetInstitution || 'Teftiş Kurulu'}
+- Kadro: ${config.positionTitle || 'Müfettiş Yardımcılığı'}
+- Aday Adı: ${config.candidateName || 'Aday'}
+- Gündemdeki Kanunlar: ${lawsList}
+
+MÜLAKAT DİYALOĞU:
+${conversation}
+
+LÜTFEN SADECE GEÇERLİ BİR JSON NESNESİ DÖNDÜR. JSON FORMATI AŞAĞIDAKİ ŞABLONA BİREBİR UYMALIDIR (Yorum veya markdown tırnakları olmadan sadece saf JSON döndür):
+{
+  "overallScore": 84,
+  "verdict": "BAŞARILI", 
+  "scores": {
+    "legalKnowledge": 85,
+    "logicalReasoning": 80,
+    "expressionAndDiction": 90,
+    "ethicsAndStressManagement": 85
+  },
+  "committeeImpressionSummary": "Heyetin oturum boyunca gizli duygu durumu ve adaya dair psikolojik izlenimi (Örn: Heyet adayın ilk soruda özgüvenli olduğunu ancak 2. sorudaki zamanaşımı detayında bocaladığını, stres sorusunda ise dik durduğunu kaydetmiştir...)",
+  "questionAnalyses": [
+    {
+      "questionNumber": 1,
+      "questionText": "Sorulan soru",
+      "candidateAnswerText": "Adayın verdiği cevap",
+      "commissionImpression": "Heyetin bu cevabı dinlerkenki içsel hissi ve intibası",
+      "accuracyScore": 85,
+      "critique": "Adayın cevabındaki zayıf veya eksik bırakılan hukuki yönler",
+      "idealAnswerGuide": "Bu soruya verilecek tam puanlık ideal kanuni cevap nasıl olmalıydı (Madde ve gerekçelerle)"
+    }
+  ],
+  "keyStrengths": [
+    "Adayın öne çıkan güçlü yönü 1",
+    "Adayın öne çıkan güçlü yönü 2"
+  ],
+  "areasToDevelop": [
+    "Geliştirmesi gereken kritik alan 1",
+    "Geliştirmesi gereken kritik alan 2"
+  ],
+  "commissionNotes": "Heyetin aday hakkındaki nihai kanaat şerhi",
+  "recommendedLawArticles": [
+    "Örn: 213 Sayılı VUK Madde 359",
+    "Örn: 5018 Sayılı Kanun Madde 31"
+  ],
+  "studyPrescription": [
+    "Sınav gününe kadar adayın mutlaka yapması gereken somut çalışma maddesi 1",
+    "Somut çalışma maddesi 2",
+    "Somut çalışma maddesi 3"
+  ]
+}
+
+NOT: 'verdict' alanı sadece 'BAŞARILI', 'YEDEKLERDE' veya 'YETERSİZ' değerlerinden birini alabilir. Puanlar 0-100 arası tamsayıdır.`;
+
+    for (const modelName of SUPPORTED_MODELS) {
+      try {
+        const model = genAI.getGenerativeModel({ 
+          model: modelName,
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 3000,
+            responseMimeType: 'application/json'
+          }
+        });
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text().trim();
+
+        // JSON ayrıştırma
+        const parsed = JSON.parse(text);
+
+        return {
+          overallScore: Number(parsed.overallScore) || 75,
+          verdict: parsed.verdict || (Number(parsed.overallScore) >= 70 ? 'BAŞARILI' : 'YETERSİZ'),
+          candidateName: config.candidateName || 'Aday',
+          position: config.positionTitle || 'Müfettiş Yardımcılığı',
+          institution: config.targetInstitution || 'Hazine ve Maliye Bakanlığı',
+          scores: {
+            legalKnowledge: Number(parsed.scores?.legalKnowledge) || 75,
+            logicalReasoning: Number(parsed.scores?.logicalReasoning) || 75,
+            expressionAndDiction: Number(parsed.scores?.expressionAndDiction) || 80,
+            ethicsAndStressManagement: Number(parsed.scores?.ethicsAndStressManagement) || 80
+          },
+          committeeImpressionSummary: parsed.committeeImpressionSummary || 'Heyet adayın oturum genelindeki soğukkanlılığını ve temsil kabiliyetini olumlu değerlendirmiştir.',
+          questionAnalyses: Array.isArray(parsed.questionAnalyses) ? parsed.questionAnalyses : [],
+          keyStrengths: Array.isArray(parsed.keyStrengths) ? parsed.keyStrengths : ['Mevzuata genel hakimiyet', 'Soğukkanlı ifade yetisi'],
+          areasToDevelop: Array.isArray(parsed.areasToDevelop) ? parsed.areasToDevelop : ['Kanun maddelerinin fıkra numaraları daha net ezberlenmeli'],
+          commissionNotes: parsed.commissionNotes || 'Adayın mülakat genelindeki performansı heyetimizce tatmin edici bulunmuştur.',
+          recommendedLawArticles: Array.isArray(parsed.recommendedLawArticles) ? parsed.recommendedLawArticles : ['213 Sayılı VUK Madde 359', '5018 Sayılı Kanun Madde 8'],
+          studyPrescription: Array.isArray(parsed.studyPrescription) ? parsed.studyPrescription : ['İlgili kanun maddelerini tekrar çalışınız.'],
+          fullAIReportText: text
+        };
+      } catch (err: any) {
+        console.warn(`Rapor üretilirken ${modelName} hatası:`, err?.message || err);
+      }
+    }
+
+    throw new Error('Yapay zeka mülakat raporu oluşturamadı.');
   }
 }

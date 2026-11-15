@@ -54,6 +54,7 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
   const [candidateNotes, setCandidateNotes] = useState<string>('');
   const [evaluationReport, setEvaluationReport] = useState<InterviewEvaluationReport | null>(null);
   const [showEvaluationModal, setShowEvaluationModal] = useState<boolean>(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState<boolean>(false);
   
   // Örnek ideal cevap ipucu
   const [showIdealHint, setShowIdealHint] = useState<boolean>(false);
@@ -171,20 +172,13 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
             speakerIndex: nextSpeakerIndex, // 5 sembolik kişiden biri
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             stage: nextStage,
-            content: aiResponseText,
-            feedback: {
-              accuracyScore: Math.floor(Math.random() * 15) + 82,
-              toneScore: Math.floor(Math.random() * 10) + 88,
-              tip: 'Cevabınız ilgili kanun maddesi bağlamında analiz edildi.'
-            }
+            content: aiResponseText
           };
 
           setMessages(prev => [...prev, aiMessage]);
 
           if (nextStage === 'evaluation') {
-            const report = engineRef.current.generateEvaluationReport();
-            setEvaluationReport(report);
-            setShowEvaluationModal(true);
+            await triggerReportGeneration([...messages, userMessage, aiMessage]);
           }
 
           setIsProcessing(false);
@@ -204,15 +198,14 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
       }
 
       // Varsayılan Akıllı Mock Motoru
-      setTimeout(() => {
+      setTimeout(async () => {
         const result = engineRef.current.processCandidateResponse(text, currentStage);
         result.message.speakerIndex = nextSpeakerIndex;
         setMessages(prev => [...prev, result.message]);
         setCurrentStage(result.nextStage);
 
         if (result.evaluationReport) {
-          setEvaluationReport(result.evaluationReport);
-          setShowEvaluationModal(true);
+          await triggerReportGeneration([...messages, userMessage, result.message]);
         }
 
         setIsProcessing(false);
@@ -224,11 +217,36 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
     }
   };
 
+  // Yapay Zeka ile Kapsamlı Rapor Üretimi
+  const triggerReportGeneration = async (dialogHistory?: ChatMessage[]) => {
+    setIsGeneratingReport(true);
+    const historyToEvaluate = dialogHistory || messages;
+
+    try {
+      if (!isMockMode && geminiService.isConfigured()) {
+        try {
+          const aiReport = await geminiService.generateComprehensiveAIReport(config, historyToEvaluate, laws);
+          setEvaluationReport(aiReport);
+          setShowEvaluationModal(true);
+          return;
+        } catch (e) {
+          console.warn('Gemini AI rapor üretimi hatası, yerleşik motora geçildi:', e);
+        }
+      }
+
+      const fallbackReport = engineRef.current.generateEvaluationReport();
+      setEvaluationReport(fallbackReport);
+      setShowEvaluationModal(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   // Erken bitirme
-  const handleEndEarly = () => {
-    const report = engineRef.current.generateEvaluationReport();
-    setEvaluationReport(report);
-    setShowEvaluationModal(true);
+  const handleEndEarly = async () => {
+    await triggerReportGeneration();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -399,6 +417,23 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
                 placeholder="Örn: 213 sayılı kanun md 359..."
                 className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 resize-none focus:outline-none focus:border-amber-500"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Yapay Zeka Rapor Hazırlama Yükleniyor Modalı */}
+      {isGeneratingReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="p-7 rounded-3xl bg-slate-900 border border-slate-700 text-center space-y-4 max-w-sm shadow-2xl animate-in zoom-in-95">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-brand-950 border-2 border-brand-500/50 flex items-center justify-center shadow-lg shadow-brand-500/20">
+              <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Yapay Zeka Karne Raporu Hazırlanıyor</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Tüm mülakat diyalogları ve kanun maddeleri yapay zeka tarafından inceleniyor; komisyon kanaati, soru tahlilleri ve çalışma reçeteniz çıkarılıyor...
+              </p>
             </div>
           </div>
         </div>

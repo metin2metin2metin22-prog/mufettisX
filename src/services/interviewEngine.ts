@@ -194,12 +194,7 @@ Komisyonumuz tüm aşamaları (Mevzuat Hakimiyeti, Muhakeme Yeteneği, Temsil Ka
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       stage: nextStage,
       content: replyContent,
-      referencedLaw: referencedLawSnippet,
-      feedback: {
-        accuracyScore: accuracyScore,
-        toneScore: Math.floor(Math.random() * 15) + 82,
-        tip: tip
-      }
+      referencedLaw: referencedLawSnippet
     };
 
     let evaluationReport: InterviewEvaluationReport | undefined = undefined;
@@ -243,6 +238,16 @@ Komisyonumuz tüm aşamaları (Mevzuat Hakimiyeti, Muhakeme Yeteneği, Temsil Ka
         expressionAndDiction: expressionScore,
         ethicsAndStressManagement: ethicsScore
       },
+      committeeImpressionSummary: 'Heyetimiz, adayın mülakat genelinde ağırbaşlı ve ölçülü bir duruş sergilediğini, teorik sorularda mevzuat kavramlarını doğru seçtiğini ancak pratik denetim vakalarında daha ayrıntılı adımlar atması gerektiğini değerlendirmiştir.',
+      questionAnalyses: this.candidateAnswers.map((ans, idx) => ({
+        questionNumber: idx + 1,
+        questionText: ans.question,
+        candidateAnswerText: ans.answer,
+        commissionImpression: ans.score >= 80 ? 'Heyet üzerinde güven verici olumlu bir intiba bıraktı.' : 'Adayın cevabında çekingenlik ve eksik mevzuat vurgusu gözlemlendi.',
+        accuracyScore: ans.score,
+        critique: ans.score >= 80 ? 'Gerekçelendirme başarılıydı.' : 'Kanun maddesinin fıkra detaylarına ve zamanaşımı sürelerine daha fazla değinilmeliydi.',
+        idealAnswerGuide: 'İlgili kanun maddesi, fıkra hükmü ve uygulamadaki içtihatlar kronolojik olarak zikredilmelidir.'
+      })),
       keyStrengths: [
         'Mevzuat maddelerine ve kanuni kavramlara hakimiyet',
         'Stres ve otorite baskısı altında hukukun üstünlüğünden ödün vermeyen duruş',
@@ -257,6 +262,11 @@ Komisyonumuz tüm aşamaları (Mevzuat Hakimiyeti, Muhakeme Yeteneği, Temsil Ka
         '213 Sayılı VUK Madde 359 (Kaçakçılık)',
         '5018 Sayılı Kanun Madde 8 (Hesap Verme Sorumluluğu)',
         '657 Sayılı Kanun Madde 137 (Görevden Uzaklaştırma)'
+      ],
+      studyPrescription: [
+        'VUK 359 sahte belge ve defter tahrifatı ayrımını ceza alt-üst sınırlarıyla tekrar çalışın.',
+        '5018 sayılı kanundaki harcama ve muhasebe yetkilisi sorumluluk tablosunu ezberleyin.',
+        'Mülakat sorularında cümlelerinizi gerekçeli kanun maddesiyle açmaya özen gösterin.'
       ]
     };
   }

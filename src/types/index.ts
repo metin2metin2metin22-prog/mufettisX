@@ -73,7 +73,7 @@ export interface InterviewConfig {
 export interface ChatMessage {
   id: string;
   role: 'commission' | 'candidate' | 'system';
-  speakerTitle?: string; // İsteğe bağlı
+  speakerTitle?: string;
   speakerIndex?: number; // 0, 1, 2, 3, 4 (5 sembolik üyeden hangisi)
   avatarUrl?: string;
   content: string;
@@ -84,11 +84,16 @@ export interface ChatMessage {
     articleNumber: string;
     snippet: string;
   };
-  feedback?: {
-    accuracyScore: number; // 0 - 100
-    toneScore: number;
-    tip: string;
-  };
+}
+
+export interface QuestionAnalysis {
+  questionNumber: number;
+  questionText: string;
+  candidateAnswerText: string;
+  commissionImpression: string; // Heyetin bu cevaptaki hissi ve intibası
+  accuracyScore: number; // 0 - 100
+  critique: string; // Nerede hata yaptı veya neyi eksik bıraktı
+  idealAnswerGuide: string; // İdeal kanuni cevap nasıl olmalıydı
 }
 
 export interface InterviewEvaluationReport {
@@ -103,8 +108,13 @@ export interface InterviewEvaluationReport {
     expressionAndDiction: number;
     ethicsAndStressManagement: number;
   };
+  // Heyetin Oturum Boyunca Gizli Duygu Durumu ve İzlenimleri
+  committeeImpressionSummary: string;
+  questionAnalyses: QuestionAnalysis[];
   keyStrengths: string[];
   areasToDevelop: string[];
   commissionNotes: string;
   recommendedLawArticles: string[];
+  studyPrescription: string[]; // Sınava kadar çalışılması gereken somut reçete
+  fullAIReportText?: string;
 }
