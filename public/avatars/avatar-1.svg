@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <circle cx="100" cy="100" r="94" fill="#ffffff" stroke="#111827" stroke-width="10"/>
+  <!-- Head & Hair Silhouette -->
+  <path d="M72,82 C68,54 82,32 100,32 C118,32 132,54 128,82 C126,95 118,105 100,105 C82,105 74,95 72,82 Z" fill="#111827"/>
+  <!-- Neck -->
+  <path d="M88,100 L112,100 L114,124 L86,124 Z" fill="#111827"/>
+  <!-- Shoulders & Torso -->
+  <path d="M42,175 C48,136 74,120 100,120 C126,120 152,136 158,175 C142,187 122,194 100,194 C78,194 58,187 42,175 Z" fill="#111827"/>
+</svg>

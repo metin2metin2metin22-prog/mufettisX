@@ -73,7 +73,8 @@ export interface InterviewConfig {
 export interface ChatMessage {
   id: string;
   role: 'commission' | 'candidate' | 'system';
-  speakerTitle?: string; // Örn: 'Komisyon Başkanı', 'Hukuk Müşaviri (Üye)', 'Maliye Başmüfettişi (Üye)'
+  speakerTitle?: string; // İsteğe bağlı
+  speakerIndex?: number; // 0, 1, 2, 3, 4 (5 sembolik üyeden hangisi)
   avatarUrl?: string;
   content: string;
   timestamp: string;

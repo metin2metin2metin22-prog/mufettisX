@@ -1,31 +1,36 @@
 import React from 'react';
 import { ChatMessage } from '../../types';
 import { 
-  ShieldCheck, 
   User, 
   Scale, 
   Lightbulb, 
-  CheckCircle2,
-  Building2,
-  Award
+  CheckCircle2
 } from 'lucide-react';
 
 interface ChatBubbleProps {
   message: ChatMessage;
 }
 
-// Basit ve güvenli Markdown / Biçimlendirme İşleyicisi
+const COMMITTEE_AVATARS = [
+  '/avatars/avatar-1.png',
+  '/avatars/avatar-2.svg',
+  '/avatars/avatar-3.svg',
+  '/avatars/avatar-4.svg',
+  '/avatars/avatar-5.svg',
+];
+
+// Temiz Markdown / Metin Biçimlendirici (Yıldız ** temizlenir ve kalın yapılır)
 const renderFormattedContent = (content: string) => {
-  // Satırlara ayır
-  const lines = content.split('\n');
+  // Gereksiz "Komisyon Başkanı:" vb. başlıkları temizle (eğer AI metne eklediyse)
+  let cleanContent = content.replace(/^(\*\*.*?(başkan|komisyon|üye|heyet).*?\*\*[:\-]?\s*)/i, '');
+
+  const lines = cleanContent.split('\n');
 
   return lines.map((line, idx) => {
-    // Boş satır
     if (!line.trim()) {
-      return <div key={idx} className="h-2.5" />;
+      return <div key={idx} className="h-2" />;
     }
 
-    // Başlık (### veya **)
     let isHeader = false;
     let cleanLine = line;
 
@@ -37,20 +42,17 @@ const renderFormattedContent = (content: string) => {
       cleanLine = line.replace('## ', '');
     }
 
-    // Liste maddesi mi? (- veya * veya 1.)
     const isBullet = /^\s*([•\-\*]|\d+\.)\s+/.test(cleanLine);
     if (isBullet) {
       cleanLine = cleanLine.replace(/^\s*([•\-\*]|\d+\.)\s+/, '');
     }
 
-    // Kalın (**metin**) ve İtalik (*metin*) ayrıştırma
+    // Kalın (**metin**) ve İtalik (*metin*)
     const parts = [];
-    let remaining = cleanLine;
-    let matchIdx = 0;
-
     const regex = /(\*\*.*?\*\*|\*.*?\*|`.*?`)/g;
     let match;
     let lastIndex = 0;
+    let matchIdx = 0;
 
     while ((match = regex.exec(cleanLine)) !== null) {
       if (match.index > lastIndex) {
@@ -85,7 +87,7 @@ const renderFormattedContent = (content: string) => {
 
     if (isHeader) {
       return (
-        <h4 key={idx} className="text-sm sm:text-base font-bold text-brand-300 mt-2 mb-1">
+        <h4 key={idx} className="text-sm font-bold text-brand-300 mt-2 mb-1">
           {parts}
         </h4>
       );
@@ -95,7 +97,7 @@ const renderFormattedContent = (content: string) => {
       return (
         <div key={idx} className="flex items-start gap-2 my-1 pl-2 text-slate-200">
           <span className="text-brand-400 font-bold shrink-0 mt-0.5">•</span>
-          <span className="flex-1">{parts}</span>
+          <span className="flex-1 leading-relaxed">{parts}</span>
         </div>
       );
     }
@@ -110,51 +112,43 @@ const renderFormattedContent = (content: string) => {
 
 export const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
   const isCommission = message.role === 'commission';
+  const speakerIdx = typeof message.speakerIndex === 'number' ? message.speakerIndex % 5 : 0;
+  const avatarSrc = COMMITTEE_AVATARS[speakerIdx] || COMMITTEE_AVATARS[0];
 
   return (
     <div className={`flex flex-col ${isCommission ? 'items-start' : 'items-end'} mb-6 group w-full`}>
       <div className={`flex items-start gap-3.5 max-w-3xl w-full ${isCommission ? 'flex-row' : 'flex-row-reverse'}`}>
         
-        {/* Resmi Avatar */}
-        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-lg ${
-          isCommission 
-            ? 'bg-gradient-to-tr from-slate-900 via-slate-800 to-brand-950 border-brand-500/40 text-brand-400 shadow-brand-950/50' 
-            : 'bg-gradient-to-tr from-brand-600 to-indigo-600 border-brand-400 text-white shadow-brand-900/30'
-        }`}>
-          {isCommission ? (
-            <ShieldCheck className="w-5 h-5 text-brand-400" />
-          ) : (
+        {/* Yuvarlak Silüet Avatarı (İsim / Ünvan YOK) */}
+        {isCommission ? (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden shrink-0 border-2 border-slate-700 bg-white shadow-md relative">
+            <img
+              src={avatarSrc}
+              alt="Heyet Üyesi"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `/avatars/avatar-${speakerIdx + 1}.svg`;
+              }}
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border border-brand-400 bg-gradient-to-tr from-brand-600 to-indigo-600 text-white shadow-md shadow-brand-900/30">
             <User className="w-5 h-5 text-white" />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Mesaj Gövdesi */}
         <div className="flex flex-col flex-1 max-w-2xl">
           
-          {/* Konuşmacı Başlığı & Zaman */}
-          <div className={`flex items-center gap-2 mb-1.5 px-1 ${isCommission ? 'justify-start' : 'justify-end'}`}>
-            {isCommission ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-brand-300 tracking-wide flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-amber-400" />
-                  {message.speakerTitle || 'Yüksek Mülakat Komisyon Heyeti'}
-                </span>
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-950 text-brand-400 border border-brand-800/60">
-                  Resmi Oturum
-                </span>
-              </div>
-            ) : (
-              <span className="text-xs font-bold text-slate-300">
-                Aday (Siz)
-              </span>
-            )}
+          {/* Zaman Damgası */}
+          <div className={`flex items-center gap-2 mb-1 px-1 ${isCommission ? 'justify-start' : 'justify-end'}`}>
             <span className="text-[10px] text-slate-500 font-mono">
               {message.timestamp}
             </span>
           </div>
 
-          {/* Konuşma Balonu */}
-          <div className={`p-4 sm:p-5 rounded-3xl text-sm shadow-xl ${
+          {/* Konuşma Balonu (Ünvan/İsim Yazmaz, Doğrudan Baloncuk) */}
+          <div className={`p-4 sm:p-5 rounded-3xl text-sm shadow-xl leading-relaxed relative ${
             isCommission
               ? 'bg-slate-900/95 border border-slate-700/80 text-slate-200 rounded-tl-sm backdrop-blur-md shadow-black/40 ring-1 ring-slate-800'
               : 'bg-gradient-to-r from-brand-700 to-indigo-700 text-white rounded-tr-sm shadow-brand-900/40 font-medium'

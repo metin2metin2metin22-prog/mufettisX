@@ -32,10 +32,8 @@ export class InterviewEngine {
     this.laws = laws;
   }
 
-  // İlk karşılama mesajını üretir
+  // İlk karşılama mesajını üretir (1. Sembolik Üye)
   public getInitialGreeting(): ChatMessage {
-    const institution = this.config.targetInstitution || 'Hazine ve Maliye Bakanlığı';
-    const position = this.config.positionTitle || 'Vergi Müfettiş Yardımcılığı';
     const candidateName = this.config.candidateName ? `Sayın ${this.config.candidateName}` : 'Sayın Aday';
 
     const selectedLawTitles = this.laws
@@ -47,22 +45,15 @@ export class InterviewEngine {
     return {
       id: `msg-${Date.now()}-0`,
       role: 'commission',
-      speakerTitle: 'Komisyon Başkanı (1. Sınıf Başmüfettiş)',
+      speakerIndex: 0, // 1. Sembolik Kişi
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       stage: 'welcome',
-      content: `**T.C. ${institution.toUpperCase()} SÖZLÜ SINAV VE MÜLAKAT KOMİSYONU**
-*Tutanak Esas No: 2026/M-104 • Salon: 1 • Oturum: Kapalı/Resmi*
+      content: `${candidateName}, mülakata hoş geldiniz.
 
-${candidateName}, komisyonumuz huzuruna hoş geldiniz. Oturunuz ve heyetimizin sükunetini bekleyiniz.
+Önünüzdeki başvuru dosyası ve ilan şartları incelenmiştir. Masadaki mevzuat gündeminde yer alan **${selectedLawTitles || 'ilgili kanunlar'}** çerçevesinde alan bilginiz ve muhakeme kabiliyetiniz değerlendirilecektir.
 
-Heyetimiz önünüzdeki başvuru dosyasını, tahsil durumunuzu ve ilan şartlarını incelemiştir. Masamızdaki mevzuat gündeminde **${selectedLawTitles || 'Temel Türk Mevzuatı'}** bulunmaktadır.
-
-Bu mülakatta; ezberlenmiş basmakalıp sözleri değil, devletin denetim ve soruşturma erkini temsil edebilecek **kanuni muhakeme derinliğini, ifade kabiliyetinizi ve mesleki vakarınızı** değerlendireceğiz.
-
-**Komisyonumuzun İlk Sorusu:**
-Kendinizi, eğitiminizi ve hususiyle devlete hizmet noktasında neden bu kariyer mesleği tercih ettiğinizi; gereksiz ayrıntılardan kaçınarak, kanun ve devlet terbiyesi çerçevesinde özetleyiniz.
-
-Söz sizdedir, buyrun.`
+**İlk Soru:**
+Kendinizi, eğitiminizi ve bu alandaki kariyer hedefinizi kısaca özetler misiniz? Buyrun, dinliyoruz.`
     };
   }
 
