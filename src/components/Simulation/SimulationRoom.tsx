@@ -223,22 +223,14 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
     const historyToEvaluate = dialogHistory || messages;
 
     try {
-      if (!isMockMode && geminiService.isConfigured()) {
-        try {
-          const aiReport = await geminiService.generateComprehensiveAIReport(config, historyToEvaluate, laws);
-          setEvaluationReport(aiReport);
-          setShowEvaluationModal(true);
-          return;
-        } catch (e) {
-          console.warn('Gemini AI rapor üretimi hatası, yerleşik motora geçildi:', e);
-        }
-      }
-
-      const fallbackReport = engineRef.current.generateEvaluationReport();
-      setEvaluationReport(fallbackReport);
+      const report = await geminiService.generateComprehensiveAIReport(config, historyToEvaluate, laws);
+      setEvaluationReport(report);
       setShowEvaluationModal(true);
     } catch (err) {
-      console.error(err);
+      console.warn('Rapor oluşturulurken hata, yerel akıllı motora geçildi:', err);
+      const fallbackReport = geminiService.buildIntelligentLocalReport(config, historyToEvaluate, laws);
+      setEvaluationReport(fallbackReport);
+      setShowEvaluationModal(true);
     } finally {
       setIsGeneratingReport(false);
     }
@@ -423,7 +415,7 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
       )}
 
       {/* Yapay Zeka Rapor Hazırlama Yükleniyor Modalı */}
-      {isGeneratingReport && (
+      {isGeneratingReport && !showEvaluationModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
           <div className="p-7 rounded-3xl bg-slate-900 border border-slate-700 text-center space-y-4 max-w-sm shadow-2xl animate-in zoom-in-95">
             <div className="w-16 h-16 mx-auto rounded-3xl bg-brand-950 border-2 border-brand-500/50 flex items-center justify-center shadow-lg shadow-brand-500/20">
