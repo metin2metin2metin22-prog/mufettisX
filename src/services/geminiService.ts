@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { InterviewConfig, LawResource, ExternalResource, ChatMessage } from '../types';
+import { InterviewConfig, LawResource, ExternalResource, ChatMessage, InterviewStage } from '../types';
 
 const API_KEY_STORAGE_KEY = 'mufettisx_gemini_api_key';
 const MOCK_MODE_STORAGE_KEY = 'mufettisx_use_mock_mode';
@@ -30,7 +30,7 @@ export class GeminiService {
 
   public isMockMode(): boolean {
     const stored = localStorage.getItem(MOCK_MODE_STORAGE_KEY);
-    // Varsayılan olarak mock modu açık (Kullanıcı promptunda "cevapları şimdilik api ye bağlama" dediği için)
+    // Varsayılan olarak mock modu açık
     return stored === null ? true : stored === 'true';
   }
 
@@ -42,11 +42,41 @@ export class GeminiService {
     return Boolean(this.getApiKey());
   }
 
+  // API Anahtarını canlı olarak test eder
+  public async testConnection(key?: string): Promise<{ success: boolean; message: string }> {
+    const testKey = key?.trim() || this.getApiKey();
+    if (!testKey) {
+      return { success: false, message: 'Lütfen geçerli bir Gemini API anahtarı giriniz.' };
+    }
+
+    try {
+      const genAI = new GoogleGenerativeAI(testKey);
+      // Ücretsiz ve en hızlı model
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await model.generateContent('Merhaba, tek kelimeyle "Aktif" de.');
+      const response = await result.response;
+      const text = response.text();
+
+      if (text) {
+        return { success: true, message: 'Google Gemini API bağlantısı başarılı! Ücretsiz Flash modeli hazır.' };
+      }
+      return { success: false, message: 'API yanıt döndüremedi.' };
+    } catch (err: any) {
+      console.error('Gemini test error:', err);
+      let errMsg = err.message || 'Bağlantı sağlanamadı.';
+      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('400')) {
+        errMsg = 'Geçersiz API Anahtarı! Lütfen Google AI Studio üzerinden aldığınız anahtarı kontrol ediniz.';
+      }
+      return { success: false, message: `Hata: ${errMsg}` };
+    }
+  }
+
   // Gemini API'ye gönderilecek sistem promptunu ve kanun bağlamını inşa eder
   public buildSystemPrompt(
     config: InterviewConfig,
     selectedLaws: LawResource[],
-    externalResources: ExternalResource[]
+    externalResources: ExternalResource[],
+    currentStage: InterviewStage
   ): string {
     const toneText = {
       supportive: 'Adayı cesaretlendirici, rehberlik eden ama ciddiyeti koruyan nazik bir üslup',
@@ -55,7 +85,7 @@ export class GeminiService {
     }[config.committeeTone];
 
     const lawsContext = selectedLaws.map(law => {
-      const articles = law.articles.map(a => `  - ${a.articleNumber} (${a.title}): ${a.text}`).join('\n');
+      const articles = law.articles.map(a => `  - ${a.articleNumber} (${a.title}): ${a.text} [Önem: ${a.relevance}]`).join('\n');
       return `[KANUN: ${law.title} (${law.code})]\n${articles}`;
     }).join('\n\n');
 
@@ -63,14 +93,15 @@ export class GeminiService {
       return `[KAYNAK: ${r.title} (${r.source})]\n${r.content}`;
     }).join('\n\n');
 
-    return `Sen "MüfettişX" adında, Türkiye'nin en seçkin kariyer meslek sınavları ve teftiş kurulları (VDK, Sayıştay, SGK, İdari Yargı, BDDK vb.) için sözlü mülakat simülasyonu yapan Yüksek Mülakat Komisyon Heyetisin.
+    return `Sen "MüfettişX" adında, Türkiye'nin en seçkin kariyer meslek sınavları ve teftiş kurulları (VDK, Sayıştay, SGK, İdari Yargı Hâkimliği, Banka Müfettişliği, BDDK vb.) için sözlü mülakat simülasyonu icra eden Yüksek Mülakat Komisyon Heyetisin.
 
 MÜLAKAT BİLGİLERİ:
-- Hedef Kurum: ${config.targetInstitution || 'Teftiş Kurulu'}
+- Hedef Kurum: ${config.targetInstitution || 'Teftiş Kurulu Başkanlığı'}
 - Kadro / Unvan: ${config.positionTitle || 'Müfettiş Yardımcılığı'}
 - Aday Adı: ${config.candidateName || 'Aday'}
-- İlan ve Başvuru Detayları: ${config.jobPostingDetails || 'Standart A Grubu Kariyer İlanı'}
+- İlan Detayları: ${config.jobPostingDetails || 'Standart A Grubu Kariyer İlanı'}
 - Komisyon Tavrı: ${toneText}
+- Mülakat Aşaması: ${currentStage}
 
 MÜLAKATTA KULLANILACAK KANUN VE MEVZUAT METİNLERİ:
 ${lawsContext}
@@ -78,18 +109,12 @@ ${lawsContext}
 EK KAYNAKLAR VE DENETİM REHBERLERİ:
 ${resourcesContext}
 
-GÖREVLERİN:
-1. Sen tek bir yapay zeka gibi değil; oturumu yöneten "Komisyon Başkanı" ve uzman "Komisyon Üyeleri" ağzıyla konuşursun.
-2. Adayın verdiği cevabı analiz et: kanuni terimleri doğru kullandı mı? Mantık silsilesi sağlam mı?
-3. Soru sorarken mutlaka yukarıda verilen KANUN MADDELERİNDEN ve gerçek denetim senaryolarından yararlan.
-4. Sırasıyla şu aşamaları takip et:
-   - Tanışma ve kariyer motivasyonu
-   - Teorik kanun maddesi sorusu
-   - Derinleştirici takip sorusu
-   - Somut denetim vakası (Case Study)
-   - Etik ikilem ve stres yönetimi sorusu
-   - Sonuç ve komisyon değerlendirmesi
-5. Yanıtlarını Türkçe, son derece prestijli, resmi ve hukuki ciddiyete uygun formatta ver.`;
+KOMİSYON PROTOKOLÜ VE KURALLAR:
+1. Tek bir kişi gibi değil, "Komisyon Başkanı (Başmüfettiş)" veya uzman "Komisyon Üyeleri" (Maliye, Hukuk, Bankacılık) kimliğiyle konuş.
+2. Adayın cevabını kısaca analiz et (hukuki terminolojiye uydu mu, mantık tutarlı mı?), ardından bir sonraki derinleştirici soruyu sor.
+3. Soru sorarken mutlaka yukarıdaki KANUN METİNLERİNDEN (Örn: VUK 359, 5018 Harcama yetkilisi, Anayasa 73 vb.) ve gerçek denetim senaryolarından (sahte fatura, zimmet, örtülü sermaye, yetki aşımı) beslen.
+4. Yanıtlarını Türkçe, son derece resmi, devlet ciddiyetine ve Türk bürokrasi teftiş adabına uygun şekilde ver.
+5. Aşırı uzun destansı yanıtlar verme; mülakat sohbetinin dinamik kalması için 2-3 paragrafı geçme.`;
   }
 
   // Gemini API çağrısı
@@ -98,7 +123,8 @@ GÖREVLERİN:
     history: ChatMessage[],
     config: InterviewConfig,
     laws: LawResource[],
-    externalResources: ExternalResource[]
+    externalResources: ExternalResource[],
+    currentStage: InterviewStage
   ): Promise<string> {
     const apiKey = this.getApiKey();
     if (!apiKey) {
@@ -106,19 +132,21 @@ GÖREVLERİN:
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Ücretsiz katmanda çalışan Google Gemini 1.5 Flash modeli
     const model = genAI.getGenerativeModel({ 
       model: 'gemini-1.5-flash',
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 800,
       }
     });
 
-    const systemPrompt = this.buildSystemPrompt(config, laws, externalResources);
+    const systemPrompt = this.buildSystemPrompt(config, laws, externalResources, currentStage);
     
     // Geçmiş mesajları formatla
     const conversationHistory = history.map(msg => 
-      `${msg.role === 'commission' ? 'KOMİSYON' : 'ADAY'}: ${msg.content}`
+      `${msg.role === 'commission' ? (msg.speakerTitle || 'KOMİSYON') : 'ADAY'}: ${msg.content}`
     ).join('\n\n');
 
     const fullPrompt = `${systemPrompt}
@@ -126,10 +154,11 @@ GÖREVLERİN:
 GEÇMİŞ MÜLAKAT DİYALOĞU:
 ${conversationHistory}
 
-ADAYIN SON CEVABI:
+ADAYIN VERDİĞİ SON CEVAP:
 "${candidateText}"
 
-Lütfen komisyonun bir sonraki sorusunu veya cevaba yönelik değerlendirmesini üret.`;
+LÜTFEN ŞİMDİ:
+Adayın cevabını komisyon heyeti vakarında kısaca değerlendir ve ilgili kanun veya teftiş senaryosu çerçevesinde sıradaki sorunu yönelt.`;
 
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
