@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   InterviewTemplate, 
   SubjectField, 
@@ -21,8 +21,12 @@ import {
   Search,
   BookOpen,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Lock,
+  Timer
 } from 'lucide-react';
+import { getRemainingPenaltySeconds } from '../../utils/penaltyManager';
+import { CancellationModal } from '../Simulation/CancellationModal';
 
 interface SimpleHomeProps {
   templates: InterviewTemplate[];
@@ -59,6 +63,27 @@ export const SimpleHome: React.FC<SimpleHomeProps> = ({
   const [showLawModal, setShowLawModal] = useState<boolean>(false);
   const [showDetailsModal, setShowDetailsModal] = useState<boolean>(false);
 
+  // Ceza Durumu (5 dakika geri sayım)
+  const [penaltySeconds, setPenaltySeconds] = useState<number>(() => getRemainingPenaltySeconds());
+  const [showPenaltyModal, setShowPenaltyModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const remaining = getRemainingPenaltySeconds();
+      setPenaltySeconds(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatPenaltyTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
   // Mülakat Arama State
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -85,6 +110,11 @@ export const SimpleHome: React.FC<SimpleHomeProps> = ({
   };
 
   const handleStart = () => {
+    if (penaltySeconds > 0) {
+      setShowPenaltyModal(true);
+      return;
+    }
+
     const isCustom = selectedTemplate.id === 'temp-custom';
     const config: InterviewConfig = {
       interviewTypeId: selectedTemplate.id,
@@ -221,15 +251,25 @@ export const SimpleHome: React.FC<SimpleHomeProps> = ({
           <span className="text-brand-400 font-semibold hover:underline">Düzenle / İlan Ekle</span>
         </div>
 
-        {/* BÜYÜK BAŞLAT BUTONU */}
+        {/* BÜYÜK BAŞLAT BUTONU VEYA CEZA SÜRESİ UYARISI */}
         <div className="pt-4">
-          <button
-            onClick={handleStart}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-brand-500 via-brand-600 to-indigo-600 hover:from-brand-400 hover:to-indigo-500 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-brand-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-3"
-          >
-            <Play className="w-5 h-5 fill-white" />
-            <span>Mülakat Simülasyonunu Başlat</span>
-          </button>
+          {penaltySeconds > 0 ? (
+            <button
+              onClick={() => setShowPenaltyModal(true)}
+              className="w-full py-4 rounded-2xl bg-rose-950/80 border-2 border-rose-600 text-rose-300 font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-rose-950/50 hover:bg-rose-900/90 transition-all"
+            >
+              <Lock className="w-5 h-5 text-rose-400" />
+              <span>Ciddiyetsiz Yanıt Cezası Aktif ({formatPenaltyTime(penaltySeconds)}) • Giriş Engellendi</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleStart}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-brand-500 via-brand-600 to-indigo-600 hover:from-brand-400 hover:to-indigo-500 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-brand-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-3"
+            >
+              <Play className="w-5 h-5 fill-white" />
+              <span>Mülakat Simülasyonunu Başlat</span>
+            </button>
+          )}
         </div>
 
       </div>
@@ -584,6 +624,13 @@ export const SimpleHome: React.FC<SimpleHomeProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Ceza Süresi Geri Sayım Modalı */}
+      {showPenaltyModal && (
+        <CancellationModal
+          onRestart={() => setShowPenaltyModal(false)}
+        />
       )}
 
     </div>

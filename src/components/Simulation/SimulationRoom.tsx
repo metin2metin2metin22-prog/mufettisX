@@ -13,6 +13,8 @@ import { CommissionHeader } from './CommissionHeader';
 import { AnonymousBench } from './AnonymousBench';
 import { ChatBubble } from './ChatBubble';
 import { EvaluationModal } from './EvaluationModal';
+import { CancellationModal } from './CancellationModal';
+import { isUnseriousAnswer, applyPenalty, getRemainingPenaltySeconds } from '../../utils/penaltyManager';
 import { 
   Send, 
   Lightbulb, 
@@ -56,6 +58,10 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
   // Örnek ideal cevap ipucu
   const [showIdealHint, setShowIdealHint] = useState<boolean>(false);
   const [idealHintText, setIdealHintText] = useState<string>('');
+
+  // Ciddiyetsiz Yanıt Cezası ve İptal Durumu (5 dakika geri sayım)
+  const [isCancelled, setIsCancelled] = useState<boolean>(() => getRemainingPenaltySeconds() > 0);
+  const [offenseText, setOffenseText] = useState<string>('');
 
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<InterviewEngine>(new InterviewEngine(config, laws));
@@ -110,6 +116,14 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
   const handleSendMessage = async () => {
     const text = inputText.trim();
     if (!text || isProcessing) return;
+
+    // Ciddiyetsiz, lakayt veya tek kelimelik yanıtta derhal mülakat iptal edilir ve 5 dk ceza uygulanır
+    if (isUnseriousAnswer(text)) {
+      applyPenalty(300); // 5 dakika (300 saniye)
+      setOffenseText(text);
+      setIsCancelled(true);
+      return;
+    }
 
     // Adayın mesajını ekle
     const userMessage: ChatMessage = {
@@ -396,6 +410,17 @@ export const SimulationRoom: React.FC<SimulationRoomProps> = ({
           report={evaluationReport}
           onRestart={onRestartInterview}
           onClose={() => setShowEvaluationModal(false)}
+        />
+      )}
+
+      {/* Ciddiyetsiz Yanıt Nedeniyle İptal ve 5 Dakika Ceza Modalı */}
+      {isCancelled && (
+        <CancellationModal
+          offenseSnippet={offenseText}
+          onRestart={() => {
+            setIsCancelled(false);
+            onRestartInterview();
+          }}
         />
       )}
 
